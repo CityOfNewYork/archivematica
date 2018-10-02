@@ -30,6 +30,17 @@ When a set of jobs is complete, the standard output and error of each is written
 back to the database.  The exit code of each job is returned to Gearman and
 communicated back to the MCP Server (where it is ultimately used to decide which
 task to run next).
+
+To analyze the client scripts for instances where functions or methods access
+mutable global objects, run this executable with the argument
+``analyze-client-scripts``, e.g.,::
+
+    $ python /src/MCPClient/lib/archivematicaClient.py analyze-client-scripts
+
+or, in a Docker Compose environment::
+
+    $ docker-compose exec archivematica-mcp-client python /src/MCPClient/lib/archivematicaClient.py analyze-client-scripts
+
 """
 
 # This file is part of Archivematica.
@@ -59,6 +70,7 @@ import logging
 import os
 from socket import gethostname
 import time
+import sys
 
 import django
 django.setup()
@@ -73,6 +85,7 @@ from django.utils import six
 import shlex
 import importlib
 
+from analyzeClientScripts import print_mutable_globals_usage
 from databaseFunctions import auto_close_db
 import fork_runner
 from job import Job
@@ -265,6 +278,12 @@ def start_gearman_worker():
 
 
 if __name__ == '__main__':
+    try:
+        if sys.argv[1] == 'analyze-client-scripts':
+            load_supported_modules(django_settings.CLIENT_MODULES_FILE)
+            sys.exit(print_mutable_globals_usage(supported_modules))
+    except IndexError:
+        pass
     try:
         load_supported_modules(django_settings.CLIENT_MODULES_FILE)
         start_gearman_worker()
