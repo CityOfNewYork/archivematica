@@ -22,11 +22,14 @@ import django
 
 
 # These are the global types that should not be potentially dangerous to use.
+# Note, we are explicitly watching out for ``types.NoneType`` as a possible bad
+# type since common practice is to use ``None`` as a default value for a global
+# and then reassign globally it to something mutable.
 GOOD_GLOBAL_TYPES = (
     types.ModuleType,
     types.FunctionType,
     types.TypeType,
-    types.NoneType,
+    types.ClassType,
     django.db.models.base.ModelBase,
     logging.Logger,
     int,
@@ -35,6 +38,7 @@ GOOD_GLOBAL_TYPES = (
     django.conf.LazySettings,
     django.db.DefaultConnectionProxy,
 )
+
 
 def get_globals(func, module):
     """Scan the bytecode of a function and return a set of the global
@@ -82,7 +86,7 @@ def collect_globals(attr, val, module, module_name, global2modules_funcs_3):
     """
     module_func = '{}:{}'.format(module_name, attr)
     for fg_attr in get_globals(val, module):
-        key = '{} ({})'.format(fg_attr, type(getattr(module, fg_attr)))
+        key = '{}, {}'.format(fg_attr, type(getattr(module, fg_attr)))
         global2modules_funcs_3.setdefault(key, []).append(module_func)
     return global2modules_funcs_3
 
@@ -136,8 +140,19 @@ def print_mutable_globals_usage(supported_modules):
         for global_, modules_funcs in analyze_module(module_name).items():
             global2modules_funcs.setdefault(global_, [])
             global2modules_funcs[global_] += modules_funcs
-    if global2modules_funcs:
-        pprint.pprint(global2modules_funcs)
+    worrisome = {
+        k: v for k, v in global2modules_funcs.items() if
+        k.split(',')[0] == k.split(',')[0].upper() and
+        k.split(',')[1].strip() == "<type 'dict'>"}
+    unacceptable = {
+        k: v for k, v in global2modules_funcs.items() if k not in worrisome}
+    if worrisome:
+        print('\nWorrisome:')
+        pprint.pprint(worrisome)
+    if unacceptable:
+        print('\nUnacceptable:')
+        pprint.pprint(unacceptable)
         return 1
-    print('No mutable globals accessed in client scripts.')
+    if not worrisome:
+        print('No mutable globals accessed in client scripts.')
     return 0
