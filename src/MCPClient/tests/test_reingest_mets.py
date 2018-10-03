@@ -437,7 +437,8 @@ class TestUpdateRights(TestCase):
         """ It should do nothing if there are no rights entries. """
         mets = metsrw.METSDocument.fromfile(os.path.join(FIXTURES_DIR, 'mets_no_metadata.xml'))
         assert mets.tree.find('mets:amdSec/mets:rightsMD', namespaces=NSMAP) is None
-        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_none)
+        state = archivematicaCreateMETSReingest.createmets2.MetsState()
+        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_none, state)
         root = mets.serialize()
         assert root.find('mets:amdSec/mets:rightsMD', namespaces=NSMAP) is None
 
@@ -445,7 +446,8 @@ class TestUpdateRights(TestCase):
         """ It should do nothing if the rights have not been modified. """
         mets = metsrw.METSDocument.fromfile(os.path.join(FIXTURES_DIR, 'mets_no_metadata.xml'))
         assert mets.tree.find('mets:amdSec/mets:rightsMD', namespaces=NSMAP) is None
-        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_reingest)
+        state = archivematicaCreateMETSReingest.createmets2.MetsState()
+        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_reingest, state)
         root = mets.serialize()
         assert root.find('mets:amdSec/mets:rightsMD', namespaces=NSMAP) is None
 
@@ -458,7 +460,8 @@ class TestUpdateRights(TestCase):
         """
         mets = metsrw.METSDocument.fromfile(os.path.join(FIXTURES_DIR, 'mets_no_metadata.xml'))
         assert mets.tree.find('mets:amdSec/mets:rightsMD', namespaces=NSMAP) is None
-        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_original)
+        state = archivematicaCreateMETSReingest.createmets2.MetsState()
+        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_original, state)
         root = mets.serialize()
 
         # Verify new rightsMD for all rightsstatements
@@ -480,7 +483,8 @@ class TestUpdateRights(TestCase):
         """
         mets = metsrw.METSDocument.fromfile(os.path.join(FIXTURES_DIR, 'mets_all_rights.xml'))
         assert len(mets.tree.findall('mets:amdSec/mets:rightsMD', namespaces=NSMAP)) == 5
-        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_updated)
+        state = archivematicaCreateMETSReingest.createmets2.MetsState()
+        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_updated, state)
         root = mets.serialize()
 
         # Verify new rightsMD for all rightsstatements
@@ -510,7 +514,8 @@ class TestUpdateRights(TestCase):
         """
         mets = metsrw.METSDocument.fromfile(os.path.join(FIXTURES_DIR, 'mets_updated_rights.xml'))
         assert len(mets.tree.findall('mets:amdSec/mets:rightsMD', namespaces=NSMAP)) == 2
-        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_updated)
+        state = archivematicaCreateMETSReingest.createmets2.MetsState()
+        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_updated, state)
         root = mets.serialize()
 
         # Verify new rightsMD for all rightsstatements
@@ -531,7 +536,8 @@ class TestUpdateRights(TestCase):
         """ It should mark the original rightsMD as obsolete. """
         mets = metsrw.METSDocument.fromfile(os.path.join(FIXTURES_DIR, 'mets_all_rights.xml'))
         assert len(mets.tree.findall('mets:amdSec/mets:rightsMD', namespaces=NSMAP)) == 5
-        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_none)
+        state = archivematicaCreateMETSReingest.createmets2.MetsState()
+        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_none, state)
         root = mets.serialize()
 
         assert len(root.findall('mets:amdSec/mets:rightsMD', namespaces=NSMAP)) == 5
@@ -540,11 +546,13 @@ class TestUpdateRights(TestCase):
     def test_delete_and_add(self):
         """
         Use case: Entire rights basis deleted, new one added
-        Solution: Mark original rightsMD as superseded. New rightsMD marked as current. """
-        """ It should mark the original rightsMD as obsolete. """
+        Solution: Mark original rightsMD as superseded. New rightsMD marked as current.
+        It should mark the original rightsMD as obsolete.
+        """
         mets = metsrw.METSDocument.fromfile(os.path.join(FIXTURES_DIR, 'mets_updated_rights.xml'))
         assert len(mets.tree.findall('mets:amdSec/mets:rightsMD', namespaces=NSMAP)) == 2
-        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_original)
+        state = archivematicaCreateMETSReingest.createmets2.MetsState()
+        mets = archivematicaCreateMETSReingest.update_rights(Job("stub", "stub", []), mets, self.sip_uuid_original, state)
         root = mets.serialize()
 
         assert len(root.findall('mets:amdSec/mets:rightsMD', namespaces=NSMAP)) == 6

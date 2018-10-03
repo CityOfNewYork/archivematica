@@ -55,12 +55,17 @@ from archivematicaFunctions import normalizeNonDcElementName
 from create_mets_dataverse_v2 import create_dataverse_sip_dmdsec, create_dataverse_tabfile_dmdsec
 from custom_handlers import get_script_logger
 import namespaces as ns
-from sharedVariablesAcrossModules import sharedVariablesAcrossModules
 
 from bagit import Bag, BagError
 
 
-class MetsState():
+class ErrorAccumulator(object):
+
+    def __init__(self):
+        self.error_count = 0
+
+
+class MetsState(object):
 
     def __init__(self, globalAmdSecCounter=0, globalTechMDCounter=0,
                  globalDigiprovMDCounter=0):
@@ -90,6 +95,7 @@ class MetsState():
         # group of the object and it's related access, license
 
         self.CSV_METADATA = {}
+        self.error_accumulator = ErrorAccumulator()
 
 
 logger = get_script_logger("archivematica.mcp.client.createMETS2")
@@ -324,7 +330,7 @@ def createDublincoreDMDSecFromDBData(job, unit_type, unit_uuid, baseDirectoryPat
                     job.pyprint(type(inst), file=sys.stderr)     # the exception instance
                     job.pyprint(inst.args, file=sys.stderr)
                     job.print_output(traceback.format_exc())
-                    sharedVariablesAcrossModules.globalErrorCount += 1
+                    state.error_accumulator.error_count += 1
         else:  # break not called, no DC successfully parsed
             return None
     state.globalDmdSecCounter += 1
@@ -629,7 +635,7 @@ def getAMDSec(job, fileUUID, filePath, use, sip_uuid, transferUUID, itemdirector
 
     if use == "original":
         metadataAppliesToList = [(fileUUID, FileMetadataAppliesToType), (sip_uuid, SIPMetadataAppliesToType), (transferUUID, TransferMetadataAppliesToType)]
-        for a in archivematicaGetRights(job, metadataAppliesToList, fileUUID):
+        for a in archivematicaGetRights(job, metadataAppliesToList, fileUUID, state):
             state.globalRightsMDCounter += 1
             rightsMD = etree.SubElement(AMD, ns.metsBNS + "rightsMD")
             rightsMD.set("ID", "rightsMD_" + state.globalRightsMDCounter.__str__())
@@ -639,7 +645,7 @@ def getAMDSec(job, fileUUID, filePath, use, sip_uuid, transferUUID, itemdirector
             xmlData.append(a)
 
         if typeOfTransfer == "Dspace":
-            for a in archivematicaCreateMETSRightsDspaceMDRef(job, fileUUID, filePath, transferUUID, itemdirectoryPath):
+            for a in archivematicaCreateMETSRightsDspaceMDRef(job, fileUUID, filePath, transferUUID, itemdirectoryPath, state):
                 state.globalRightsMDCounter += 1
                 rightsMD = etree.SubElement(AMD, ns.metsBNS + "rightsMD")
                 rightsMD.set("ID", "rightsMD_" + state.globalRightsMDCounter.__str__())
@@ -685,7 +691,7 @@ def getIncludedStructMap(job, baseDirectoryPath, state):
                     item.set("FILEID", state.fileNameToFileID[fileName])
                 else:
                     job.pyprint("error: no fileUUID for ", fileName, file=sys.stderr)
-                    sharedVariablesAcrossModules.globalErrorCount += 1
+                    state.error_accumulator.error_count += 1
     if state.trimStructMap is not None:
         ret.append(state.trimStructMap)
     return ret
@@ -773,7 +779,7 @@ def createFileSec(job,
             except File.DoesNotExist:
                 job.pyprint('No uuid for file: "', directoryPathSTR, '"',
                             file=sys.stderr)
-                sharedVariablesAcrossModules.globalErrorCount += 1
+                state.error_accumulator.error_count += 1
 
             use = f.filegrpuse
             label = f.label
@@ -919,12 +925,12 @@ def createFileSec(job,
                         fileDiv.attrib.get('DMDID', '') + ids
 
             if GROUPID == "":
-                sharedVariablesAcrossModules.globalErrorCount += 1
+                state.error_accumulator.error_count += 1
                 job.pyprint("No groupID for file: \"", directoryPathSTR, "\"", file=sys.stderr)
 
             if use not in state.globalFileGrps:
                 job.pyprint('Invalid use: "%s"' % (use), file=sys.stderr)
-                sharedVariablesAcrossModules.globalErrorCount += 1
+                state.error_accumulator.error_count += 1
             else:
                 file_elem = etree.SubElement(state.globalFileGrps[use], ns.metsBNS + "file", ID=fileId, GROUPID=GROUPID)
                 if use == "original":
@@ -1244,10 +1250,7 @@ def call(jobs):
         with job.JobContext(logger=logger):
             try:
                 opts, _ = parser.parse_args(job.args[1:])
-
-                sharedVariablesAcrossModules.globalErrorCount = 0
                 state = MetsState()
-
                 SIP_TYPE = opts.sip_type
                 baseDirectoryPath = opts.baseDirectoryPath
                 XMLFile = opts.xmlFile
@@ -1267,6 +1270,7 @@ def call(jobs):
                         job,
                         baseDirectoryPath,
                         fileGroupIdentifier,
+                        state,
                         keep_normative_structmap=keepNormativeStructmap
                     )
                     tree = etree.ElementTree(root)
@@ -1276,7 +1280,7 @@ def call(jobs):
                     continue
                 # End reingest
 
-                state.CSV_METADATA = parseMetadata(job, baseDirectoryPath)
+                state.CSV_METADATA = parseMetadata(job, baseDirectoryPath, state)
 
                 baseDirectoryPath = os.path.join(baseDirectoryPath, '')
                 objectsDirectoryPath = os.path.join(baseDirectoryPath, 'objects')
@@ -1411,7 +1415,7 @@ def call(jobs):
                 tree = etree.ElementTree(root)
                 write_mets(tree, XMLFile)
 
-                job.set_status(sharedVariablesAcrossModules.globalErrorCount)
+                job.set_status(state.error_accumulator.error_count)
             except Exception as err:
                 job.print_error(repr(err))
                 job.print_error(traceback.format_exc())

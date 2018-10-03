@@ -135,7 +135,7 @@ def update_dublincore(job, mets, sip_uuid):
     return mets
 
 
-def update_rights(job, mets, sip_uuid):
+def update_rights(job, mets, sip_uuid, state):
     """
     Add rightsMDs for updated PREMIS Rights.
     """
@@ -178,7 +178,7 @@ def update_rights(job, mets, sip_uuid):
     if not rights_list:
         job.pyprint('No new rights added')
     else:
-        add_rights_elements(job, rights_list, original_files)
+        add_rights_elements(job, rights_list, original_files, state)
 
     # Check for updated rights
     rights_list = models.RightsStatement.objects.filter(
@@ -189,12 +189,12 @@ def update_rights(job, mets, sip_uuid):
     if not rights_list:
         job.pyprint('No updated rights found')
     else:
-        add_rights_elements(job, rights_list, original_files, updated=True)
+        add_rights_elements(job, rights_list, original_files, state, updated=True)
 
     return mets
 
 
-def add_rights_elements(job, rights_list, files, updated=False):
+def add_rights_elements(job, rights_list, files, state, updated=False):
     """
     Create and add rightsMDs for everything in rights_list to files.
     """
@@ -202,7 +202,7 @@ def add_rights_elements(job, rights_list, files, updated=False):
     for fsentry in files:
         for rights in rights_list:
             # Create element
-            new_rightsmd = fsentry.add_premis_rights(createmetsrights.createRightsStatement(job, rights, fsentry.file_uuid))
+            new_rightsmd = fsentry.add_premis_rights(createmetsrights.createRightsStatement(job, rights, fsentry.file_uuid, state))
             job.pyprint('Adding rightsMD', new_rightsmd.id_string(), 'to amdSec with ID', fsentry.amdsecs[0].id_string(), 'for file', fsentry.file_uuid)
 
             if updated:
@@ -429,7 +429,7 @@ def _get_old_mets_rel_path(sip_uuid):
         'METS.' + sip_uuid + '.xml')
 
 
-def update_mets(job, sip_dir, sip_uuid, keep_normative_structmap=True):
+def update_mets(job, sip_dir, sip_uuid, state, keep_normative_structmap=True):
 
     old_mets_path = os.path.join(sip_dir, _get_old_mets_rel_path(sip_uuid))
     job.pyprint('Looking for old METS at path', old_mets_path)
@@ -439,7 +439,7 @@ def update_mets(job, sip_dir, sip_uuid, keep_normative_structmap=True):
 
     update_object(job, mets)
     update_dublincore(job, mets, sip_uuid)
-    update_rights(job, mets, sip_uuid)
+    update_rights(job, mets, sip_uuid, state)
     add_events(job, mets, sip_uuid)
     add_new_files(job, mets, sip_uuid, sip_dir)
     delete_files(mets, sip_uuid)

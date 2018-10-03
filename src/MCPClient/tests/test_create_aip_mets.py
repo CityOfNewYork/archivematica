@@ -549,7 +549,8 @@ class TestRights(TestCase):
         elem = etree.Element("{info:lc/xmlns/premis-v2}rightsStatement", nsmap={'premis': NSMAP['premis']})
         statement = RightsStatement.objects.get(id=1)
         # Test
-        archivematicaCreateMETSRights.getrightsGranted(Job("stub", "stub", []), statement, elem)
+        state = create_mets_v2.MetsState()
+        archivematicaCreateMETSRights.getrightsGranted(Job("stub", "stub", []), statement, elem, state)
         # Verify
         assert len(elem) == 1
         rightsgranted = elem[0]
