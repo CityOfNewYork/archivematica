@@ -1,14 +1,16 @@
 #!/usr/bin/env python2
 
-"""Analyze Archivematica Client Scripts
+"""Ensure there are no mutable globals in the client scripts
 
-The function ``print_mutable_globals_usage`` performs a runtime analysis of all
-of the functions and methods defined in all of the client scripts and collects
-all of the globals which have mutable types that are accessed by those
-functions/methods. It creates a dict from said globals to the list of
-modules::functions/methods that access them. If the dict is non-empty, it is
-printed and an exit code of 1 is returned. Otherwise a happy message is printed
-and 0 is returned. See archivematicaClient.py for where it is used.
+This executable ensures that there are no mutable globals being accessed by
+functions or methods used in the client scripts.
+
+The function ``print_mutable_globals_usage`` analyzes all of the functions and
+methods defined in all of the client scripts and collects all of the globals
+which have mutable types that are accessed by those functions/methods. It
+creates a dict from said globals to the list of modules::functions/methods that
+access them. If the dict is non-empty, it is printed and an exit code of 1 is
+returned. Otherwise a happy message is printed and 0 is returned.
 """
 
 from __future__ import print_function
@@ -16,9 +18,14 @@ from dis import HAVE_ARGUMENT, opmap
 import importlib
 import logging
 import pprint
+import sys
 import types
 
 import django
+django.setup()
+from django.conf import settings as django_settings
+
+from archivematicaClient import get_supported_modules
 
 
 # These are the global types that should not be potentially dangerous to use.
@@ -156,3 +163,8 @@ def print_mutable_globals_usage(supported_modules):
     if not worrisome:
         print('No mutable globals accessed in client scripts.')
     return 0
+
+
+if __name__ == '__main__':
+    sys.exit(print_mutable_globals_usage(
+        get_supported_modules(django_settings.CLIENT_MODULES_FILE)))
