@@ -22,8 +22,6 @@ import sys
 import types
 
 import django
-django.setup()
-from django.conf import settings as django_settings
 
 from archivematicaClient import get_supported_modules
 
@@ -166,5 +164,6 @@ def print_mutable_globals_usage(supported_modules):
 
 
 if __name__ == '__main__':
+    config_path = 'src/MCPClient/lib/archivematicaClientModules'
     sys.exit(print_mutable_globals_usage(
-        get_supported_modules(django_settings.CLIENT_MODULES_FILE)))
+        get_supported_modules(config_path)))
